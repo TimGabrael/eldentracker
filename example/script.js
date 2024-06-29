@@ -1,4 +1,5 @@
 const ctx = document.getElementById('heightChart').getContext('2d');
+const map_ctx = document.getElementById('map').getContext('2d');
 const heightData = {
     labels: [],
     datasets: [{
@@ -28,7 +29,7 @@ const heightChart = new Chart(ctx, {
     }
 });
 
-// Open a WebSocket connection
+
 const socket = new WebSocket('ws://localhost:6252');
 
 let x_index = 0;
@@ -37,7 +38,6 @@ socket.onmessage = function(event) {
     const data = JSON.parse(event.data);
     if(data.damage !== undefined && data.damage.receiver !== undefined && data.damage.receiver.hp !== undefined) {
         const new_hp = data.damage.receiver.hp;
-        const currentTime = new Date().getTime();
 
         // Add the new height value to the chart data
         if(heightChart.data.datasets[0].data.length > max_displayed) {

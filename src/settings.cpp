@@ -1,5 +1,4 @@
 #include "settings.h"
-#include "json.hpp"
 #include <fstream>
 #include <iostream>
 #include "logger.h"
@@ -13,36 +12,35 @@ static Settings LoadSettings(const char* filename) {
     if(settings_file.is_open()) {
         try {
             nlohmann::json settings_json = nlohmann::json::parse(settings_file);
-
-            // TODO: LOAD HOSTS AND WEBSOCKETS
-            const auto& hosts = settings_json.find("hosts");
-            if(hosts != settings_json.end() && hosts->is_array()) {
-                for(const auto& host : *hosts) {
-                    const auto& ip = host.find("ip");
-                }
-            }
-            const auto& websockets = settings_json.find("websocket_hosts");
-            if(websockets != settings_json.end() && websockets->is_array()) {
-                for(const auto& websocket : *websockets) {
-                    std::cout << websocket.dump() << std::endl;
-                    const auto& uri = websocket.find("uri");
-                    if(uri != websocket.end() && uri->is_string()) {
-                        settings.websocket_connections.push_back(*uri);
+            for(const auto& obj : settings_json) {
+                // TODO: LOAD HOSTS AND WEBSOCKETS
+                const auto& hosts = obj.find("hosts");
+                if(hosts != obj.end() && hosts->is_array()) {
+                    for(const auto& host : *hosts) {
+                        const auto& ip = host.find("ip");
                     }
                 }
-            }
-            const auto& listen_port = settings_json.find("listen_port");
-            if(listen_port != settings_json.end() && listen_port->is_number()) {
-                settings.listen_port = *listen_port;
-            }
+                const auto& websockets = obj.find("websocket_hosts");
+                if(websockets != obj.end() && websockets->is_array()) {
+                    for(const auto& websocket : *websockets) {
+                        if(websocket.is_string()) {
+                            settings.websocket_connections.push_back(websocket);
+                        }
+                    }
+                }
+                const auto& listen_port = obj.find("listen_port");
+                if(listen_port != obj.end() && listen_port->is_number()) {
+                    settings.listen_port = *listen_port;
+                }
 
-            const auto& identifier = settings_json.find("identifier");
-            if(identifier != settings_json.end() && identifier->is_string()) {
-                settings.identifier = *identifier;
-            }
-            const auto& log_level = settings_json.find("log_level");
-            if(log_level != settings_json.end() && log_level->is_number()) {
-                SetLogLevel(*log_level);
+                const auto& identifier = obj.find("identifier");
+                if(identifier != obj.end() && identifier->is_string()) {
+                    settings.identifier = *identifier;
+                }
+                const auto& log_level = obj.find("log_level");
+                if(log_level != obj.end() && log_level->is_number()) {
+                    SetLogLevel(*log_level);
+                }
             }
         }
         catch(...) {
@@ -64,23 +62,23 @@ Settings& Settings::Get() {
 void Settings::SaveToFile() const {
     std::ofstream settings_file(DLL_PATH + SETTINGS_FILE_NAME);
     if(settings_file.is_open()) {
-        nlohmann::json settings_data = 
-        {
+        try {
+            nlohmann::json settings_data = 
             {
-                "listen_port", {
-                    0x6252
-                },
-            },
-            {
-                "websocket_hosts", nlohmann::json::array({
-                        nlohmann::json::object({ "uri", "ws://localhost:6251" }),
-                    }
-                )
-            },
-            { "identifier", this->identifier },
-            { "log_level", LOG_LEVEL::LOG_INFO },
-        };
-        settings_file << settings_data.dump();
+                nlohmann::json::object({{"listen_port", 6252}}),
+                nlohmann::json::object({{
+                    "websocket_hosts", nlohmann::json::array({
+                            "ws://localhost:6251",
+                            })
+                }}),
+                nlohmann::json::object({{ "identifier", this->identifier }}),
+                nlohmann::json::object({{ "log_level", LOG_LEVEL::LOG_INFO }}),
+            };
+            settings_file << settings_data.dump(4);
+        }
+        catch(nlohmann::json::exception& e) {
+            Log(string_format("failed to create settings_data: %s", e.what()), LOG_LEVEL::LOG_ERROR);
+        }
     }
 }
 void SetDllPath(const char* full_path) {

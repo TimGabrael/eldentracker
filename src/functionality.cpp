@@ -1,6 +1,5 @@
 #include "functionality.h"
 #include <iostream>
-#include "json.hpp"
 #include "settings.h"
 #include "logger.h"
 #include "networking.h"
@@ -32,12 +31,14 @@ struct EntityMessage {
 struct DamageMessage {
     EntityMessage sender;
     EntityMessage receiver;
+    uint32_t damage_value;
     nlohmann::json ToJson() const {
         return { 
             {
                 "damage", {
                     {"sender", this->sender.ToJson()},
-                    {"receiver", this->receiver.ToJson()}
+                    {"receiver", this->receiver.ToJson()},
+                    {"damage_value", this->damage_value}
                 }
             }
         };
@@ -56,7 +57,20 @@ struct DeathMessage {
             }
         };
     }
-
+};
+struct InfoMessage {
+    EntityMessage player;
+    uint32_t death_count;
+    nlohmann::json ToJson() const {
+        return {
+            {
+                "info", {
+                    {"player", this->player.ToJson()},
+                    {"death_count", this->death_count},
+                }
+            }
+        };
+    }
 };
 
 
@@ -89,6 +103,7 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
             msg.receiver.handle = Game_GetCharacterHandle(receiver);
             msg.receiver.map_pos = Game_WorldToMap(receiver);
             msg.receiver.normalized_map_pos = {msg.receiver.pos.x / map_size.x, msg.receiver.pos.y / map_size.y};
+            msg.damage_value = damage->damage;
 
             nlohmann::json dmg_json = msg.ToJson();
             Net_SendData(dmg_json.dump());
@@ -102,6 +117,25 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
         }
     }
     return ApplyDmgCallbackContinue(module, sender, damage, param4, param5);
+}
+std::string GetLocalPlayerData() {
+    Instance* local_instance = Game_GetLocalInstance();
+    if(local_instance) {
+        InfoMessage info = {};
+        info.player.pos = Game_GetCharacterPosition(local_instance);
+        info.player.max_hp = Game_GetCharacterMaxHp(local_instance);
+        info.player.hp = Game_GetCharacterCurrentHp(local_instance);
+        info.player.handle = Game_GetCharacterHandle(local_instance);
+        info.player.map_pos = Game_WorldToMap(local_instance);
+        Vector2 map_size = Game_GetMapSize();
+        info.player.normalized_map_pos = {info.player.map_pos.x / map_size.x, info.player.map_pos.y / map_size.y};
+        info.player.is_player = true;
+        info.player.npc_id = Game_GetNpcId(local_instance);
+        info.death_count = Game_GetCurrentDeathCount();
+        nlohmann::json info_json = info.ToJson();
+        return info_json.dump();
+    }
+    return "";
 }
 
 Vector2 WorldPositionToMapPosition(struct WorldMapLegacyConverter* legacy_converter, Vector3 pos, uint32_t special_map_id) {

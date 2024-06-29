@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
+#include "json.hpp"
 
 enum LOG_LEVEL {
     LOG_NONE,

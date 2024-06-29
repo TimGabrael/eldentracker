@@ -5,6 +5,7 @@
 #include <websocketpp/client.hpp>
 #include <websocketpp/server.hpp>
 #include <websocketpp/config/debug_asio_no_tls.hpp>
+#include "functionality.h"
 
 
 typedef websocketpp::client<websocketpp::config::asio_client> Client;
@@ -32,7 +33,22 @@ static std::vector<websocketpp::connection_hdl> server_hdls;
 
 
 static void on_message(Client* c, websocketpp::connection_hdl hdl, message_ptr msg) {
-    std::cout << "on_message called with hdl: " << hdl.lock().get() << " and message: " << msg->get_payload() << std::endl;
+    // std::cout << "on_message called with hdl: " << hdl.lock().get() << " and message: " << msg->get_payload() << std::endl;
+    try {
+        nlohmann::json msg_json = nlohmann::json::parse(msg->get_payload());
+        const auto& player_info = msg_json.find("info");
+        if(player_info != msg_json.end()) {
+            std::string data = GetLocalPlayerData();
+            auto con = c->get_con_from_hdl(hdl);
+            websocketpp::lib::error_code err = con->send(data);
+            if(!err) {
+                Log(err.message(), LOG_LEVEL::LOG_WARNING);
+            }
+        }
+    }
+    catch(...) {
+
+    }
 }
 static void ConnectToWebsocket(const std::string& uri) {
     Client c;
@@ -72,11 +88,10 @@ static bool validate(Server* s, websocketpp::connection_hdl conn) {
 }
 static void on_fail(Server* s, websocketpp::connection_hdl hdl) {
     Server::connection_ptr con = s->get_con_from_hdl(hdl);
-    std::cout << "Fail handler: " << con->get_ec() << " " << con->get_ec().message()  << std::endl;
+    //std::cout << "Fail handler: " << con->get_ec() << " " << con->get_ec().message()  << std::endl;
 }
 
 static void on_close(websocketpp::connection_hdl) {
-    std::cout << "Close handler" << std::endl;
 }
 static void on_http(Server* s, websocketpp::connection_hdl hdl) {
     Server::connection_ptr con = s->get_con_from_hdl(hdl);
@@ -90,17 +105,21 @@ static void on_http(Server* s, websocketpp::connection_hdl hdl) {
     con->set_status(websocketpp::http::status_code::ok);
 }
 void on_message_server(Server* s, websocketpp::connection_hdl hdl, message_ptr msg) {
-    std::cout << "on_message called with hdl: " << hdl.lock().get() << " and message: " << msg->get_payload() << std::endl;
-
     try {
-        s->send(hdl, msg->get_payload(), msg->get_opcode());
-    } catch (websocketpp::exception const & e) {
+        nlohmann::json msg_json = nlohmann::json::parse(msg->get_payload());
+        const auto& player_info = msg_json.find("info");
+        if(player_info != msg_json.end()) {
+            std::string data = GetLocalPlayerData();
+            auto con = s->get_con_from_hdl(hdl);
+            s->send(hdl, data, msg->get_opcode());
+        }
+    } catch (...) {
     }
 }
 void Net_StartListening(uint32_t port) {
    Server s;
    server = &s;
-   std::cout << "start_listening on: " << port << std::endl; 
+   Log(string_format("start_listening on: %d", port), LOG_LEVEL::LOG_INFO);
     try {
         // Set logging settings
         s.set_access_channels(websocketpp::log::alevel::all);

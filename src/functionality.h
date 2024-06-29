@@ -1,13 +1,13 @@
 #pragma once
 #include "mem.h"
+#include <string>
 
-extern uintptr_t(*HealthUpdateCallbackContinue)(DataModule*, void*, void*,void*);
-void HitCallbackFunction(Instance* entity_instance, void* additional_data);
-uintptr_t HealthUpdateCallbackFunction(DataModule* module, void* additional_data, void* null, void* more_info);
 
 extern void(*ApplyDmgCallbackContinue)(ChrDamageModule* module, Instance* entity_instance, DamageStruct* damage, uint64_t param4, char param5);
 void ApplyDmgCallbackFunction(ChrDamageModule* module, Instance* entity_instance, DamageStruct* damage, uint64_t param4, char param5);
 
+
+std::string GetLocalPlayerData();
 
 // attempt at recreating the internal function, that i end up using
 // it doesn't really work, but i will leave it here just in case.
