@@ -395,7 +395,6 @@ Vector2 Game_GetMapSize() {
             map_size.x = *(float*)(next + 0x20);
             map_size.y = *(float*)(next + 0x24);
             return map_size;
-
         }
     }
     return {1.0f, 1.0f};

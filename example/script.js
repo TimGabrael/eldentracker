@@ -1,5 +1,6 @@
 const ctx = document.getElementById('heightChart').getContext('2d');
-const map_ctx = document.getElementById('map').getContext('2d');
+const map_canvas = document.getElementById('map');
+const map_ctx = map_canvas.getContext('2d');
 const heightData = {
     labels: [],
     datasets: [{
@@ -28,6 +29,19 @@ const heightChart = new Chart(ctx, {
         }
     }
 });
+function drawCircle(ctx, x, y, radius, fill, stroke, strokeWidth) {
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, 2 * Math.PI, false)
+  if (fill) {
+    ctx.fillStyle = fill
+    ctx.fill()
+  }
+  if (stroke) {
+    ctx.lineWidth = strokeWidth
+    ctx.strokeStyle = stroke
+    ctx.stroke()
+  }
+}
 
 
 const socket = new WebSocket('ws://localhost:6252');
@@ -36,8 +50,13 @@ let x_index = 0;
 let max_displayed = 10;
 socket.onmessage = function(event) {
     const data = JSON.parse(event.data);
-    if(data.damage !== undefined && data.damage.receiver !== undefined && data.damage.receiver.hp !== undefined) {
+    if(data.damage !== undefined && data.damage.receiver !== undefined && data.damage.receiver.hp !== undefined && data.damage.receiver.is_player) {
         const new_hp = data.damage.receiver.hp;
+        if(data.damage.receiver.normalized_map_pos !== undefined && data.damage.receiver.normalized_map_pos[0] !== undefined && data.damage.receiver.normalized_map_pos[1] !== undefined) {
+            let pos_x = data.damage.receiver.normalized_map_pos[0] * map_canvas.width;
+            let pos_y = data.damage.receiver.normalized_map_pos[1] * map_canvas.height;
+            drawCircle(map_ctx, pos_x, pos_y, 4, 'white', 'red', 1);
+        }
 
         // Add the new height value to the chart data
         if(heightChart.data.datasets[0].data.length > max_displayed) {

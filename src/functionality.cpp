@@ -92,7 +92,7 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
 
             Vector2 map_size = Game_GetMapSize();
             msg.sender.map_pos = Game_WorldToMap(sender);
-            msg.sender.normalized_map_pos = {msg.sender.pos.x / map_size.x, msg.sender.pos.y / map_size.y};
+            msg.sender.normalized_map_pos = {msg.sender.map_pos.x / map_size.x, msg.sender.map_pos.y / map_size.y};
 
 
             msg.receiver.max_hp = Game_GetCharacterMaxHp(receiver);
@@ -102,7 +102,7 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
             msg.receiver.pos = Game_GetCharacterPosition(receiver);
             msg.receiver.handle = Game_GetCharacterHandle(receiver);
             msg.receiver.map_pos = Game_WorldToMap(receiver);
-            msg.receiver.normalized_map_pos = {msg.receiver.pos.x / map_size.x, msg.receiver.pos.y / map_size.y};
+            msg.receiver.normalized_map_pos = {msg.receiver.map_pos.x / map_size.x, msg.receiver.map_pos.y / map_size.y};
             msg.damage_value = damage->damage;
 
             nlohmann::json dmg_json = msg.ToJson();
