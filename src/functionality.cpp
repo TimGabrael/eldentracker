@@ -7,6 +7,17 @@
 #include <windows.h>
 
 struct EntityMessage {
+    void FillFromInstance(Instance* instance) {
+        Vector2 map_size = Game_GetMapSize();
+        this->handle = Game_GetCharacterHandle(instance);
+        this->pos = Game_GetCharacterPosition(instance);
+        this->map_pos = Game_WorldToMap(instance);
+        this->normalized_map_pos = {this->map_pos.x / map_size.x, this->map_pos.y / map_size.y};
+        this->hp = Game_GetCharacterCurrentHp(instance);
+        this->max_hp = Game_GetCharacterMaxHp(instance);
+        this->npc_id = Game_GetNpcId(instance);
+        this->is_player = Game_CharacterIsPlayer(instance);
+    }
     uint64_t handle;
     Vector3 pos;
     Vector2 map_pos;
@@ -72,6 +83,23 @@ struct InfoMessage {
         };
     }
 };
+struct SpawnMessage {
+    EntityMessage player;
+    uint32_t death_count;
+    nlohmann::json ToJson() const {
+        return {
+            {
+                "spawn", {
+                    {"player", this->player.ToJson()},
+                    {"death_count", this->death_count},
+                }
+            }
+        };
+    }
+
+
+};
+static uint32_t cur_player_anim_id = 0x0;
 
 
 
@@ -83,54 +111,53 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
         bool sender_is_player = Game_CharacterIsPlayer(sender);
         if(damage->damage > 0) {
             DamageMessage msg = {};
-            msg.sender.max_hp = Game_GetCharacterMaxHp(sender);
-            msg.sender.hp = Game_GetCharacterCurrentHp(sender);
-            msg.sender.is_player = sender_is_player;
-            msg.sender.npc_id = Game_GetNpcId(sender);
-            msg.sender.pos = Game_GetCharacterPosition(sender);
-            msg.sender.handle = Game_GetCharacterHandle(sender);
-
-            Vector2 map_size = Game_GetMapSize();
-            msg.sender.map_pos = Game_WorldToMap(sender);
-            msg.sender.normalized_map_pos = {msg.sender.map_pos.x / map_size.x, msg.sender.map_pos.y / map_size.y};
-
-
-            msg.receiver.max_hp = Game_GetCharacterMaxHp(receiver);
-            msg.receiver.hp = std::max((int)Game_GetCharacterCurrentHp(receiver) - damage->damage, 0);
-            msg.receiver.is_player = receiver_is_player;
-            msg.receiver.npc_id = Game_GetNpcId(receiver);
-            msg.receiver.pos = Game_GetCharacterPosition(receiver);
-            msg.receiver.handle = Game_GetCharacterHandle(receiver);
-            msg.receiver.map_pos = Game_WorldToMap(receiver);
-            msg.receiver.normalized_map_pos = {msg.receiver.map_pos.x / map_size.x, msg.receiver.map_pos.y / map_size.y};
+            msg.sender.FillFromInstance(sender);
+            msg.receiver.FillFromInstance(receiver);
             msg.damage_value = damage->damage;
-
-            nlohmann::json dmg_json = msg.ToJson();
-            Net_SendData(dmg_json.dump());
-            if(receiver_is_player && msg.receiver.hp == 0) {
-                DeathMessage death_msg = {};
-                death_msg.player = msg.receiver;
-                death_msg.death_count = Game_GetCurrentDeathCount();
-                nlohmann::json death_json = death_msg.ToJson();
-                Net_SendData(death_json.dump());
+            if(msg.receiver.hp != 0) {
+                nlohmann::json dmg_json = msg.ToJson();
+                Net_SendData(dmg_json.dump());
             }
         }
     }
     return ApplyDmgCallbackContinue(module, sender, damage, param4, param5);
 }
+void(*SetAnimationCallbackContinue)(void* time_act_module, uint32_t anim_id);
+void SetAnimationCallbackFunction(void* time_act_module, uint32_t anim_id) {
+    if(time_act_module) {
+        Instance* instance = *(Instance**)((uint8_t*)time_act_module + 0x8);
+        if(Game_CharacterIsPlayer(instance)) {
+            if(cur_player_anim_id != anim_id) {
+                const uint32_t prev_anim_id = cur_player_anim_id;
+                cur_player_anim_id = anim_id;
+                if((anim_id == 0xF618 && prev_anim_id != 0xFD2) || (anim_id == 0xFD2 && prev_anim_id != 0xF618)) { // LOAD IN ANIMATION / ENTER GAME
+                    // send spawn msg
+                    SpawnMessage msg = {};
+                    msg.player.FillFromInstance(instance);
+                    msg.death_count = Game_GetCurrentDeathCount();
+                    nlohmann::json msg_json = msg.ToJson();
+                    Net_SendData(msg_json.dump());
+                }
+                else if(anim_id == 0x465C) { // DEAD
+                    DeathMessage msg = {};
+                    msg.player.FillFromInstance(instance);
+                    msg.death_count = Game_GetCurrentDeathCount();
+                    nlohmann::json msg_json = msg.ToJson();
+                    Net_SendData(msg_json.dump());
+                }
+                else if(anim_id == 0x109AB) { // RESTING AT GRACE
+                }
+            }
+        }
+
+    }
+    return SetAnimationCallbackContinue(time_act_module, anim_id);
+}
 std::string GetLocalPlayerData() {
     Instance* local_instance = Game_GetLocalInstance();
     if(local_instance) {
         InfoMessage info = {};
-        info.player.pos = Game_GetCharacterPosition(local_instance);
-        info.player.max_hp = Game_GetCharacterMaxHp(local_instance);
-        info.player.hp = Game_GetCharacterCurrentHp(local_instance);
-        info.player.handle = Game_GetCharacterHandle(local_instance);
-        info.player.map_pos = Game_WorldToMap(local_instance);
-        Vector2 map_size = Game_GetMapSize();
-        info.player.normalized_map_pos = {info.player.map_pos.x / map_size.x, info.player.map_pos.y / map_size.y};
-        info.player.is_player = true;
-        info.player.npc_id = Game_GetNpcId(local_instance);
+        info.player.FillFromInstance(local_instance);
         info.death_count = Game_GetCurrentDeathCount();
         nlohmann::json info_json = info.ToJson();
         return info_json.dump();

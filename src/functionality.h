@@ -6,6 +6,10 @@
 extern void(*ApplyDmgCallbackContinue)(ChrDamageModule* module, Instance* entity_instance, DamageStruct* damage, uint64_t param4, char param5);
 void ApplyDmgCallbackFunction(ChrDamageModule* module, Instance* entity_instance, DamageStruct* damage, uint64_t param4, char param5);
 
+extern void(*SetAnimationCallbackContinue)(void* time_act_module, uint32_t anim_id);
+void SetAnimationCallbackFunction(void* time_act_module, uint32_t anim_id);
+
+
 
 std::string GetLocalPlayerData();
 

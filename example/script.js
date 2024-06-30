@@ -73,7 +73,7 @@ socket.onmessage = function(event) {
 
 socket.onopen = function(event) {
     console.log("WebSocket is open now.");
-    //socket.send("{\"hi\": \"whatup\"}");
+    socket.send("{\"info\": \"\"}"); // get the current information
 };
 
 socket.onclose = function(event) {

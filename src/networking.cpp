@@ -122,7 +122,7 @@ void Net_StartListening(uint32_t port) {
    Log(string_format("start_listening on: %d", port), LOG_LEVEL::LOG_INFO);
     try {
         // Set logging settings
-        s.set_access_channels(websocketpp::log::alevel::all);
+        s.set_access_channels(websocketpp::log::alevel::none);
         s.clear_access_channels(websocketpp::log::alevel::frame_payload);
 
         // Initialize ASIO

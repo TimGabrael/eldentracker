@@ -16,32 +16,37 @@ const char* AobApplyDmgFunc = "4C 8B DC 55 53 56 57 41 56 41 57 49 8D 6B 88 48 8
 const char* AobCSMenuMan = "48 8B 0D ?? ?? ?? ?? 48 8B 49 08 E8 ?? ?? ?? ?? 48 8B D0 48 8B CE";
 
 
+// currently unused
 using FnApplyEffect = void (*)(void* ChrIns, int spEffectId);
 using FnRemoveEffect = void (*)(void* CSSpecialEffect, int spEffectId);
 const char* AobApplyEffectFunc = "48 8B C4 48 89 58 08 48 89 70 10 57 48 81 EC ?? ?? ?? ?? 0F 28 05 ?? ?? ?? ?? 48 8B F1 0F 28 0D ?? ?? ?? ?? 48 8D 48 88";
 const char* AobRemoveEffectFunc = "48 83 EC 28 8B C2 48 8B 51 08 48 85 D2 ?? ?? 90";
 
 
+// currently unused
 using FnSetEventFlag = void (*)(const uint64_t event_man, uint32_t* event_id, bool state);
 using FnGetEventFlag = int (*)(void* manager, int flagID);
 const char* AobEventFlagManagerFunc = "48 8B 3D ?? ?? ?? ?? 48 85 FF ?? ?? 32 C0 E9";
 const char* AobEventFlagSetFunctionFunc = "?? ?? ?? ?? ?? 48 89 74 24 18 57 48 83 EC 30 48 8B DA 41 0F B6 F8 8B 12 48 8B F1 85 D2 0F 84 ?? ?? ?? ?? 45 84 C0"; // 5 to overwrite
 const char* AobEventFlagGetFunctionFunc = "44 8B 41 ?? 44 8B DA 33 D2 41 8B C3 41 F7 F0";
 
+
+using FnSetAnimation = void(*)(void* time_act_module, uint32_t animation_id);
+const char* AobSetAnimation = "4C 8B DC 55 56 57 48 83 EC 70 49 C7 43 A8 FE FF FF FF";
+
+
 struct PositionInformation {
     uint32_t map_id;
     Vector3 pos;
     float padding;
 };
-
 //struct WorldMapAreaConverter* converter = (struct WorldMapAreaConverter*)((uint8_t*)legacy_converter + 0x38);
 // the pos_again is slightly different then pos, maybe it is the relative pos + the global pos or something similar
 // for now i will just pass the same in there twice
 // it seems like the function was designed to get the map positions of 2 instances at once in the same map_id
 // but i will just call it twice
-using FnWorldToMap = Vector2(*)(WorldMapAreaConverter*, Vector2& output, PositionInformation& pos, Vector3& pos_again);
 // start_protected_game.exe + 0x875E60
-FnWorldToMap PFUNC_WORLD_TO_MAP = 0;
+using FnWorldToMap = Vector2(*)(WorldMapAreaConverter*, Vector2& output, PositionInformation& pos, Vector3& pos_again);
 const char* AobPfuncWorldToMap = "40 53 57 48 83 EC 68 48 8B 05 ?? ?? ?? ?? 48 33 C4";
 
 
@@ -105,6 +110,8 @@ static uintptr_t* WORLD_CHR_MAN_PTR = 0;
 static uintptr_t* CS_MENU_MAN_PTR = 0;
 
 static uintptr_t APPLY_DMG_FUNC_PTR = 0;
+static uintptr_t SET_ANIM_FUNC_PTR = 0;
+static FnWorldToMap WORLD_TO_MAP_FUNC_PTR = 0;
 
 struct Hook {
     uint8_t* start_loc = nullptr;
@@ -254,9 +261,17 @@ void Mem_Initialize() {
             hook.Set((uint8_t*)APPLY_DMG_FUNC_PTR, (void*)&ApplyDmgCallbackFunction, 5, (void**)&ApplyDmgCallbackContinue);
         }
     }
-    if(!PFUNC_WORLD_TO_MAP) {
-        PFUNC_WORLD_TO_MAP = (FnWorldToMap)FindPattern(handle, AobPfuncWorldToMap);
-        Log(string_format("PFUNC_WORLD_TO_MAP: %p", (void*)PFUNC_WORLD_TO_MAP), LOG_LEVEL::LOG_INFO);
+    if(!SET_ANIM_FUNC_PTR) {
+        SET_ANIM_FUNC_PTR = (uintptr_t)FindPattern(handle, AobSetAnimation);
+        Log(string_format("SET_ANIM_FUNC_PTR: %p", (void*)SET_ANIM_FUNC_PTR), LOG_LEVEL::LOG_INFO);
+        if(SET_ANIM_FUNC_PTR) {
+            static Hook hook;
+            hook.Set((uint8_t*)SET_ANIM_FUNC_PTR, (void*)&SetAnimationCallbackFunction, 5, (void**)&SetAnimationCallbackContinue);
+        }
+    }
+    if(!WORLD_TO_MAP_FUNC_PTR) {
+        WORLD_TO_MAP_FUNC_PTR = (FnWorldToMap)FindPattern(handle, AobPfuncWorldToMap);
+        Log(string_format("PFUNC_WORLD_TO_MAP: %p", (void*)WORLD_TO_MAP_FUNC_PTR), LOG_LEVEL::LOG_INFO);
     }
 
 }
@@ -408,7 +423,7 @@ Vector2 Game_WorldToMap(Instance* instance_ptr) {
         WorldMapAreaConverter* converter = Game_GetWorldMapAreaConverter();
         Vector3 another_pos = pos_info.pos;
         Vector2 output_2;
-        Vector2 output_1 = PFUNC_WORLD_TO_MAP(converter, output_2, pos_info, another_pos);
+        Vector2 output_1 = WORLD_TO_MAP_FUNC_PTR(converter, output_2, pos_info, another_pos);
         return output_1;
     }
     return {FLT_MAX, FLT_MAX};
