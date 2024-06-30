@@ -114,7 +114,7 @@ void ApplyDmgCallbackFunction(struct ChrDamageModule* module, Instance* sender, 
             msg.sender.FillFromInstance(sender);
             msg.receiver.FillFromInstance(receiver);
             msg.damage_value = damage->damage;
-            if(msg.receiver.hp != 0) {
+            if(msg.receiver.hp != 0 && msg.sender.handle != 0) {
                 nlohmann::json dmg_json = msg.ToJson();
                 Net_SendData(dmg_json.dump());
             }
@@ -138,7 +138,11 @@ void SetAnimationCallbackFunction(void* time_act_module, uint32_t anim_id) {
                     nlohmann::json msg_json = msg.ToJson();
                     Net_SendData(msg_json.dump());
                 }
-                else if(anim_id == 0x465C) { // DEAD
+                else if(anim_id == 0x465C  || anim_id == 0x4652  ||
+                        anim_id == 0x1005  || anim_id == 0x1019  ||
+                        anim_id == 0x1018  || anim_id == 0x11172 ||
+                        anim_id == 0x1C909 || anim_id == 0x46AA  ||
+                        anim_id == 0x46DC  || anim_id == 0x467A) { // DEAD
                     DeathMessage msg = {};
                     msg.player.FillFromInstance(instance);
                     msg.death_count = Game_GetCurrentDeathCount();
